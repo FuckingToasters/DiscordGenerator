@@ -948,7 +948,9 @@ class Generator:
                             urls = re.findall('(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-&?=%.]+', body.decode("latin1"))
                             if "https://click.discord.com/ls/click".encode() in body:
                                 self.VERIFICATIONLINK = urls[0]
-                                break      
+                                imap_server.store(message_number, "+X-GM-LABELS", "\\Trash")
+                                break
+                        
             await self.page.goto(self.VERIFICATIONLINK)
             self.images = []
         except Exception: raise Exception
