@@ -430,23 +430,27 @@ class Generator:
             self.logger.debug(f"Captcha Exception: {str(e)}")
             self.logger.info("Captcha Passed successfully!")
             return True
+          
         # Getting Question and Label of the Captcha
         try:
-            question_locator = captcha_frame.locator(
-                "//h2[@class='prompt-text']")
+            question_locator = captcha_frame.locator("//h2[@class='prompt-text']")
             question = await question_locator.text_content()
+        
+        except playwright._impl._api_types.TimeoutError:
+          for _ in range(2): await self.close()
+            
         except Exception as e:
-            print(e)
+            # print(e)
             self.logger.error("Captcha Question didnt load")
-            await self.close()
-            return False
-        self.label = re.split(
-            r"containing a", question)[-1][1:].strip() if "containing" in question else question
+            for _ in range(2): await self.close()
+            # return False
+            return
+          
+        self.label = re.split(r"containing a", question)[-1][1:].strip() if "containing" in question else question
         self.label = self.label.replace(".", "")
         self.logger.info(f"Got Captcha QuestionLabel: {self.label}")
         # Initializing ArmorCaptcha
-        self.challenger = ArmorCaptcha(dir_workspace=DIR_CHALLENGE, dir_model=DIR_MODEL, lang='en', debug=True,
-                                       path_objects_yaml=PATH_OBJECTS_YAML, onnx_prefix="yolov5s6")
+        self.challenger = ArmorCaptcha(dir_workspace=DIR_CHALLENGE, dir_model=DIR_MODEL, lang='en', debug=True, path_objects_yaml=PATH_OBJECTS_YAML, onnx_prefix="yolov5s6")
         # Getting Lavel and Model from AI
         self.challenger.label = self.label
         self.model = self.challenger.switch_solution()  # DIR_MODEL, None
@@ -455,8 +459,7 @@ class Generator:
         for i in range(3):
             await self.captcha_module()
             if not any(self.results):
-                self.logger.warning(
-                    "AI Results were incorrect, retrying AI")
+                self.logger.warning("AI Results were incorrect, retrying AI")
                 pass
             else:
                 break
@@ -575,16 +578,23 @@ class Generator:
         await self.page.route("https://imgs.hcaptcha.com/*", image_append)
         # Clicking Captcha Checkbox
         try:
-            self.checkbox = self.page.frame_locator(
-                '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+            self.checkbox = self.page.frame_locator('[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
             await self.checkbox.scroll_into_view_if_needed(timeout=20000)
+        
+        
+        except playwright._impl._api_types.TimeoutError:
+          self.logger.error("Timeout exceeded while selecting hidden element, restarting Browser...")
+          for _ in range(2): await self.close()
+        
         except Exception as e:
             self.logger.error("Captcha didn´t load")
-            return False
+            for _ in range(2): await self.close()
+            # return False
+            return
+          
         await self.click_humanly(self.checkbox, "")
         await self.page.wait_for_timeout(2000)
         captcha = await self.captcha_solver()
-
         await self.close()
 
     async def generate_unclaimed(self):
